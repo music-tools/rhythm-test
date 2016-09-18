@@ -1,0 +1,570 @@
+﻿
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Rhythm Test</title>
+    <!--
+    <script src="vexflow-min.js"></script>
+    <script src="underscore-min.js"></script>
+    <script src="jquery.js"></script>
+    <script src="tabdiv-min.js"></script>
+    -->
+    <!-- Scripts -->
+    <script src="jquery.js" type="text/javascript"></script>
+    <script src="underscore-min.js" type="text/javascript"></script>
+    
+    <!-- VexFlow -->
+    <script src="vexflow-min.js" type="text/javascript"></script>
+    <script src="tabdiv-min.js" type="text/javascript"></script>
+
+    
+    <script type="text/javascript" ></script>
+    <style type="text/css">
+        html { 
+        background: url(monk-coltrane.jpg) ; 
+        background-repeat:no-repeat;
+        background-position:right top;
+        }
+        h1 
+        {   font-family: 'Dancing Script', Georgia, Times, serif;
+            color:white;
+            font-size:150%;}
+        b
+        {
+            font-size:150%;
+            color:red;
+        }
+        h2
+        {
+            font-size:100%;
+            color:White;
+        }
+        #awesome1,#awesome2,#awesome3,#awesome4,#awesome5,#awesome6,#awesome7,#awesome8,#awesome9,#awesome10,#awesome11,#awesome12,#awesome13,#awesome14,#myInterval,#awesome15,#myChordType
+        {
+            
+            
+            padding: 5px 10px 6px;
+            color: #fff;
+            background-color: #000;
+            text-decoration: none;
+            font-weight: bold;
+            line-height: 1;
+            -moz-border-radius: 5px;
+            -webkit-border-radius: 5px;
+            -moz-box-shadow: 0 1px 3px #999;
+            -webkit-box-shadow: 0 1px 3px #999;
+            
+            border-bottom: 1px solid #222;
+            
+        }
+        
+        
+    </style>
+    
+</head>
+
+<body>
+<center><button id="awesome1" onclick="window.location.reload()">Generate</button><button id="awesome2" onclick="playRhythmPattern()">Test Sound</button><button id="awesome3" onclick="replayBeat()">(Re)Play</button></center><button id="awesome4" onclick="revealNotation()">Reveal Notation</button></center>
+
+<div id="div1" style="width:840; margin-left: auto; margin-right: auto;"><div class="vex-tabdiv" id="vex1" width="800" scale="1.0" editor="true"  editor_height="100" style="position: relative;"><canvas class="vex-canvas" id="canvas1" width="400" height="260"></canvas><p></p><div class="editor-error"></div><p id="p1"></p><textarea rows=20 cols=20 class="editor"  id="editor1" style="width: 408px; height: 102px;">tabstave notation=true 
+notes C/5 C/5 C/5 C/5 | </textarea></div></div>
+
+
+<script type="text/javascript">
+document.getElementById("div1").style.visibility="hidden";
+    /* PRE-LOADING SOUNDS */
+
+    function BufferLoader(context, urlList, callback) 
+    {
+            this.context = context;
+            this.urlList = urlList;
+            this.onload = callback;
+            this.bufferList = new Array();
+            this.loadCount = 0;        
+    }
+
+
+    BufferLoader.prototype.loadBuffer = function(url, index) {
+            // Load buffer asynchronously
+            var request = new XMLHttpRequest();
+            request.open("GET", url, true);
+            request.responseType = "arraybuffer";
+
+            var loader = this;
+
+            request.onload = function() {
+            // Asynchronously decode the audio file data in request.response
+                loader.context.decodeAudioData(
+                    request.response,
+                    function(buffer) {
+                        if (!buffer) {
+                            alert('error decoding file data: ' + url);
+                            return;
+                        }
+                        loader.bufferList[index] = buffer;
+                        if (++loader.loadCount == loader.urlList.length)
+                            loader.onload(loader.bufferList);
+                    }    
+                );
+            }   
+
+            request.onerror = function() {
+                alert('BufferLoader: XHR error');        
+            }
+
+            request.send();
+    }
+
+    BufferLoader.prototype.load = function() {
+       for (var i = 0; i < this.urlList.length; ++i)
+           this.loadBuffer(this.urlList[i], i);
+    }
+
+
+    
+    
+
+    var context;
+    var bufferLoader;
+    var eighthNoteTime=0.5;
+    var quarterNoteTime=2*eightNoteTime;
+	var barsGlobal=new Array();
+	barsGlobal.push(new Array(),new Array(),new Array());
+	var totalTimeG = 4;
+	var minimumValueG = 16;
+	var intervalG=totalTimeG/minimumValueG;
+    var lastEditGlobal='tabstave notation=true tablature=false' + '\n' + 'notes C/5 C/5 C/5 C/5 |' + '\n' + 'notes ' ;
+    var graphGlobal='';
+
+    context = new webkitAudioContext();
+
+
+    bufferLoader = new BufferLoader(
+    context,
+    [
+	"woodblock.wav",
+	"hihat.wav"
+    ]
+    ,finishedLoading
+    );
+
+    bufferLoader.load();
+    
+    
+   
+    function finishedLoading() {
+    //alert ("Loading Complete!!!");
+    }
+    
+    
+    function playSound(buffer, time) {
+      var source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.start(time);
+    }
+
+    /*GENERATING THE BEAT*/
+
+
+    var generateBeat = function ()
+    {
+        
+        var timeGlobal = context.currentTime;
+
+        var totalTime = 4;
+        var timeSignature = '';
+        var gen=Math.floor((Math.random()*3));
+        /*
+        switch (gen)
+        {
+            case 0:
+            {
+                totalTime = 4*quarterNoteTime;// 4/4
+                timeSignature='4/4';
+                break;
+            }
+            case 1:
+            {
+                totalTime = 3*quarterNoteTime;// 3/4
+                timeSignature='3/4';
+                break;
+            }
+            case 2:
+            {
+                totalTime = 6*eightNoteTime;// 6/8
+                timeSignature='6/8';
+                break;
+            }
+        }
+        */
+		
+		var minimumValue = 16;
+		var interval=totalTime/minimumValue;
+		var bar = new Array();
+		//bar.push(new Array(),new Array(),new Array(),new Array());	
+		var values = [
+			"1",
+			"10",
+			"1000",
+			"100000",
+			"10000000"
+		];
+		var barI=0;
+		while (barI <= 1)
+		{
+            
+            bar[barI]=new Array();
+            
+            while (bar[barI].length < (totalTime/(eightNoteTime/2)) )
+            {
+                var gene=Math.random();
+                var i;
+                
+                if ((bar[barI].length==0)&&(gene<0.65)) //dont put small values at the begining of first bar
+                {    
+                    while (gene<0.65)
+                        gene=Math.random();
+                }
+                if ( bar[barI].length < minimumValue/2 )
+                {
+                    //all values
+                    if (gene<0.15)
+                    {
+                        for ( i = 0;i < values[0].length; i++)
+                            bar[barI].push(values[0][i]);
+                    }
+                    else if (gene<0.4)
+                    {
+                        for ( i = 0;i < values[1].length; i++)   
+                            bar[barI].push(values[1][i]);
+                    }
+                    else if (gene<0.65)
+                    {
+                        for ( i = 0;i < values[2].length; i++)
+                            bar[barI].push(values[2][i]);
+                    }
+                    else if (gene<0.8)
+                    {
+                        for ( i = 0;i < values[3].length; i++)
+                            bar[barI].push(values[3][i]);
+                    }
+                    else
+                    {
+                        for ( i = 0;i < values[4].length; i++)
+                            bar[barI].push(values[4][i]);
+                    }
+                }
+                else if ( bar[barI].length < (5* minimumValue/8) )
+                {
+                    //exclude half
+                    if (gene<0.2)
+                    {
+                        for ( i = 0;i < values[0].length; i++)
+						    bar[barI].push(values[0][i]);
+                    }
+                    else if (gene<0.55)
+                    {
+                        for ( i = 0;i < values[1].length; i++)
+                            bar[barI].push(values[1][i]);
+                    }
+                    else if (gene<0.85)
+                    {
+                        for ( i = 0;i < values[2].length; i++)
+                            bar[barI].push(values[2][i]);
+                    }
+                    else
+                    {
+                        for ( i = 0;i < values[3].length; i++)
+                            bar[barI].push(values[3][i]);
+                    }
+                }
+                else if ( bar[barI].length < (3* minimumValue/4) )
+                {
+                    //exclude half,quarter__
+                    if (gene<0.2)
+                    {
+                        for ( i = 0;i < values[0].length; i++)
+                            bar[barI].push(values[0][i]);
+                    }
+                    else if (gene<0.6)
+                    {
+                        for ( i = 0;i < values[1].length; i++)
+                            bar[barI].push(values[1][i]);
+                    }
+                    else
+                    {
+                        for ( i = 0;i < values[2].length; i++)
+                            bar[barI].push(values[2][i]);
+                    }
+                }
+                else if ( bar[barI].length < (7* minimumValue/8) )
+                {
+                    //exclude half,quarter__,quarter
+                    if (gene<0.3)
+                    {
+                        for ( i = 0;i < values[0].length; i++)
+                            bar[barI].push(values[0][i]);
+                    }
+                    else
+                    {
+                        for ( i = 0;i < values[1].length; i++)
+                            bar[barI].push(values[1][i]);
+                    }
+                }
+                else
+                {
+                    //only 16th
+                    for ( i = 0;i < values[0].length; i++)
+                        bar[barI].push(values[0][i]);
+                }
+            }
+            barI++;
+        }
+		
+
+        bar[2]=new Array();
+        bar[3]=new Array();
+		bar[2]=bar[0];	
+		bar[3]=bar[1];
+
+		//changes to bar 4
+        /*(
+		var gen2=Math.floor(Math.random()*9)+7;
+		var gen3=Math.floor(Math.random()*9)+7;
+        
+        alert(gen2);
+        alert(gen3);
+		bar[3][gen2]=1;
+		bar[3][gen3]=1;
+        */
+        
+		
+		
+		var k;
+        var count2=0;
+		var lastNames='';
+        var lastEdit='tabstave notation=true tablature=false time=' + '\n' + 'notes X/5 X/5 X/5 X/5 |' + '\n' ;
+
+
+
+       
+        
+
+        for (i=0;i<=3;i++)
+        {
+            lastEdit  += 'notes ';
+            for (j=0;j<=15;j++)
+            {
+                if (bar[i][j]==1)
+                {
+                    /*Decide time value*/
+                    if (j!=15)
+                        k=j+1;
+                    else 
+                        k=j;
+                    count2=0;
+                    
+                    while ((k<16)&&(bar[i][k]!=1))
+                    {
+                        count2++;                       
+                        k++;
+                    }
+                    
+                    
+                    switch (count2)
+                    {
+							case 0: 
+								{
+									lastNames += 'Sixteenth \n';
+                                    lastEdit  += ':16 C/5 ';
+									break;
+								}
+							case 1: 
+								{
+									lastNames += 'Eighth \n';
+                                    lastEdit  += ':8 C/5 ';
+									break;
+								}
+							
+							case 3: 
+								{
+									lastNames += 'Quarter \n';
+                                    lastEdit  += ':q C/5 ';
+									break;
+								}
+							case 5: 
+								{
+									lastNames += 'Quarter___ \n';
+                                    lastEdit  += ':qd C/5 ';
+									break;
+								}
+							case 7: 
+								{
+									lastNames += 'Half \n';
+                                    lastEdit  += ':h C/5 ';
+									break;
+								}	
+                            default:
+                                {
+                                    alert("No such time value you moron!!!");
+                                    break;
+                                }
+					}
+				}
+            }
+            lastNames += '\n \n \n'
+            if (i<3) 
+                lastEdit +='|' + '\n' ; 
+        }
+
+        
+		barsGlobal=bar;
+        lastEditGlobal=lastEdit;	
+        
+		var graph = '';
+		for (i=0; i<=3; i++)
+		{
+			for (j=0;j<=15; j++)
+			{
+				graph += (bar[i][j]==1) ? '| ':'_ ';
+			}
+			graph += '\n\n';
+		}
+        graphGlobal=graph;
+        //alert(graph);
+        //alert(lastNames);
+        //alert(lastEditGlobal);
+        //alert(barsGlobal);
+        		
+        return 1;
+    }
+
+
+    
+    var playRhythmPattern = function ()
+    {
+        /* delay threshold=1000000000
+        var i=0;
+        while (i<=1000000000)
+        {
+            i++;
+        }
+        */
+        return 1;
+    }
+
+
+    /*INITIALISING MUSIC NOTATION*/
+
+    //document.getElementById("editor1").defaultValue= "tabstave notation=true tablature=false" +"\n"+ "notes C/5 D/5 E/5 F/5" WORKING WORKING
+
+    /* WORKING */
+    var xx=document.getElementById("editor1");
+    var yy=xx.defaultValue;
+    var zz="C/5 D/5 E/5 F/5 ";
+    //alert(xx.innerText);//empty
+    //alert(xx.innerHtml);//undefined
+    //alert(xx.value);//proper
+    //alert(xx.defaultValue);//proper
+
+    var randText = function ()
+    {
+        if (generateBeat()==1) {return lastEditGlobal;}
+            //return ('tabstave notation=true'+'\n'+'notes :8d D/4');
+    }
+
+    xx.defaultValue = randText(); //Working!!!
+
+
+  
+
+	var replayBeat = function ()
+	{
+		var timeGlobal=context.currentTime;
+		
+		playSound(bufferLoader.bufferList[1],context.currentTime + 0);
+		playSound(bufferLoader.bufferList[1],context.currentTime + 1);
+		playSound(bufferLoader.bufferList[1],context.currentTime + 2);
+		playSound(bufferLoader.bufferList[1],context.currentTime + 3);
+		
+		var barI=0;
+		
+		while (barI<=3)
+		{
+			for (var j=0; j<minimumValueG; j++)
+					if (barsGlobal[barI][j]==1)
+						playSound(bufferLoader.bufferList[0],4 + timeGlobal + totalTimeG*barI + intervalG*j);	
+			barI++;				
+		}
+	}
+  
+    var revealNotation = function()
+    {
+        document.getElementById("div1").style.visibility="visible"; 
+    }
+
+
+
+
+	
+	
+	
+    
+
+    
+
+
+var VolumeSample = {
+    };
+
+    // Gain node needs to be mutated by volume control.
+    VolumeSample.gainNode = null;
+
+    VolumeSample.play = function(time) {
+      if (!context.createGain)
+        context.createGain = context.createGainNode;
+      this.gainNode = context.createGain();
+      var source = context.createBufferSource();
+      source.buffer = bufferLoader.bufferList[0];
+
+      // Connect source to a gain node
+      source.connect(this.gainNode);
+      // Connect gain node to destination
+      this.gainNode.connect(context.destination);
+      // Start playback in a loop
+      source.loop = false;
+      if (!source.start)
+        source.start = source.noteOn;
+      source.start(time);
+      this.source = source;
+    };
+
+    VolumeSample.changeVolume = function(value,time) {
+      /*
+      var volume = element.value;
+      var fraction = parseInt(element.value) / parseInt(element.max);
+      // Let's use an x*x curve (x-squared) since simple linear (x) does not
+      // sound as good.
+      this.gainNode.gain.value = fraction * fraction;
+      */
+      time=time*1000;
+      alert(time);
+      setTimeout(function(){this.gainNode.gain.value = value},time);
+    };
+
+    VolumeSample.stop = function(time) {
+      if (!this.source.stop)
+        this.source.stop = source.noteOff;
+      this.source.stop(time);
+    };
+
+    VolumeSample.toggle = function(time) {
+      this.playing ? this.stop(time) : this.play(time);
+      this.playing = !this.playing;
+    };
+ 
+
+</script>
+</body>
+</html>
